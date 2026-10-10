@@ -54,8 +54,12 @@ export default function Hizmetler() {
 
   useEffect(() => {
     supabase.from('services').select('*').order('sort_order')
-      .then(({ data }) => {
+      .then(({ data, error }) => {
+        if (error) {
+          console.error('Hizmetler verisi çekilemedi:', error.message);
+        }
         if (data && data.length > 0) {
+          console.log('Supabase Hizmetler (Toplam:', data.length, 'adet):', data);
           setServiceList(data.map((s: any) => ({
             id: String(s.id),
             title: s.title,
@@ -74,32 +78,44 @@ export default function Hizmetler() {
   }, []);
 
   const checkScroll = () => {
-    if (!scrollContainerRef.current) return;
-    const { scrollLeft, scrollWidth, clientWidth } = scrollContainerRef.current;
-    setCanScrollLeft(scrollLeft > 10);
-    setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 10);
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    setCanScrollLeft(el.scrollLeft > 10);
+    setCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 10);
   };
 
   useEffect(() => {
-    checkScroll();
     const el = scrollContainerRef.current;
-    if (el) {
-      el.addEventListener('scroll', checkScroll, { passive: true });
-      window.addEventListener('resize', checkScroll);
-      return () => {
-        el.removeEventListener('scroll', checkScroll);
-        window.removeEventListener('resize', checkScroll);
-      };
-    }
-  }, []);
+    if (!el) return;
+    const timer = setTimeout(checkScroll, 150);
+    el.addEventListener('scroll', checkScroll, { passive: true });
+    window.addEventListener('resize', checkScroll);
+    return () => {
+      clearTimeout(timer);
+      el.removeEventListener('scroll', checkScroll);
+      window.removeEventListener('resize', checkScroll);
+    };
+  }, [loading, serviceList]);
 
   const scroll = (direction: 'left' | 'right') => {
-    if (!scrollContainerRef.current) return;
-    const scrollAmount = scrollContainerRef.current.clientWidth * 0.85;
-    scrollContainerRef.current.scrollBy({
-      left: direction === 'left' ? -scrollAmount : scrollAmount,
-      behavior: 'smooth',
-    });
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    const firstCard = el.querySelector<HTMLElement>(':scope > div');
+    const scrollAmount = firstCard ? firstCard.offsetWidth + 16 : 380;
+
+    if (direction === 'right') {
+      if (el.scrollLeft + el.clientWidth >= el.scrollWidth - 25) {
+        el.scrollTo({ left: 0, behavior: 'smooth' });
+      } else {
+        el.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+      }
+    } else {
+      if (el.scrollLeft <= 25) {
+        el.scrollTo({ left: el.scrollWidth, behavior: 'smooth' });
+      } else {
+        el.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
+      }
+    }
   };
 
   return (
@@ -141,18 +157,23 @@ export default function Hizmetler() {
         </div>
 
         {/* Carousel Controls */}
-        <div className="flex items-center justify-end mb-6">
+        <div className="flex items-center justify-between sm:justify-end mb-4 sm:mb-6">
+          <span className="text-xs font-medium text-slate-500 dark:text-slate-400 sm:hidden">
+            Kaydırarak inceleyin 👉
+          </span>
           <div className="flex items-center gap-2">
-            <button onClick={() => scroll('left')} disabled={!canScrollLeft}
-              className={`w-11 h-11 rounded-2xl border flex items-center justify-center transition-all cursor-pointer ${
-                canScrollLeft ? 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white hover:bg-blue-600 hover:text-white shadow-sm active:scale-95' : 'bg-slate-100 dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-slate-300 dark:text-slate-700 cursor-not-allowed opacity-50'
-              }`}>
+            <button
+              onClick={() => scroll('left')}
+              aria-label="Önceki Hizmet"
+              className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl border flex items-center justify-center transition-all cursor-pointer bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white hover:bg-blue-600 hover:text-white shadow-sm active:scale-90"
+            >
               <ChevronLeft className="w-5 h-5" />
             </button>
-            <button onClick={() => scroll('right')} disabled={!canScrollRight}
-              className={`w-11 h-11 rounded-2xl border flex items-center justify-center transition-all cursor-pointer ${
-                canScrollRight ? 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white hover:bg-blue-600 hover:text-white shadow-sm active:scale-95' : 'bg-slate-100 dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-slate-300 dark:text-slate-700 cursor-not-allowed opacity-50'
-              }`}>
+            <button
+              onClick={() => scroll('right')}
+              aria-label="Sonraki Hizmet"
+              className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl border flex items-center justify-center transition-all cursor-pointer bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white hover:bg-blue-600 hover:text-white shadow-sm active:scale-90"
+            >
               <ChevronRight className="w-5 h-5" />
             </button>
           </div>
@@ -160,7 +181,7 @@ export default function Hizmetler() {
 
         {/* Service Cards Horizontal Track */}
        <div ref={scrollContainerRef}
-  className="flex gap-4 sm:gap-6 overflow-x-auto overflow-y-hidden scrollbar-none snap-x snap-mandatory pb-4 -mx-4 px-4 sm:mx-0 sm:px-0 scroll-smooth"
+  className="flex gap-4 sm:gap-6 overflow-x-auto overflow-y-hidden scrollbar-none snap-x snap-mandatory pb-4 -mx-4 px-4 sm:mx-0 sm:px-0"
   style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>  {loading ? (
     <div className="flex items-center justify-center w-full py-20">
       <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />

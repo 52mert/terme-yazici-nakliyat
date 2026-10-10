@@ -51,7 +51,7 @@ export default function AdminPage() {
 
   const loadGallery = async () => {
     setGalleryLoading(true);
-    const { data } = await supabase.from('gallery').select('*').order('sort_order');
+    const { data } = await supabase.from('gallery').select('*').order('created_at', { ascending: false });
     if (data) setGalleryItems(data);
     setGalleryLoading(false);
   };
